@@ -79,12 +79,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -z "$TF_VAR_ACCESS_ALLOWED_EMAIL" ]]; then
-            echo "Missing GitHub Actions secret ACCESS_ALLOWED_EMAIL."
-            exit 1
-          fi
-
-          terraform init
+          terraform init -upgrade
           terraform validate
 
           ZONE_RESP=$(curl -sS             "https://api.cloudflare.com/client/v4/zones?name=novoagatto.com&account.id=$TF_VAR_CLOUDFLARE_ACCOUNT_ID&per_page=50"             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             -H "Content-Type: application/json")
@@ -133,7 +128,42 @@ jobs:
             terraform import cloudflare_dns_record.uptimeflare_status "$ZONE_ID/$DNS_ID" || echo "WARNING: DNS record import failed, continuing..."
           fi
 
-          ACCESS_RESP=$(curl -sS             "https://api.cloudflare.com/client/v4/accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/access/apps?per_page=1000"             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             -H "Content-Type: application/json")
+          IDP_RESP=$(curl -sS \
+            "https://api.cloudflare.com/client/v4/accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/access/identity_providers" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json")
+
+          if ! echo "$IDP_RESP" | jq -e '.success == true' > /dev/null; then
+            echo "Unable to inspect Access identity providers. The API token needs Access: Organizations, Identity Providers, and Groups Write."
+            echo "$IDP_RESP" | jq .
+            exit 1
+          fi
+
+          CLOUDFLARE_IDP_ID=$(echo "$IDP_RESP" | jq -r '.result[] | select(.type == "cloudflare") | .id' | head -n 1)
+          if [[ -n "$CLOUDFLARE_IDP_ID" ]]; then
+            terraform import cloudflare_zero_trust_access_identity_provider.cloudflare "accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/$CLOUDFLARE_IDP_ID" || echo "WARNING: Cloudflare identity provider import failed, continuing..."
+          fi
+
+          POLICY_RESP=$(curl -sS \
+            "https://api.cloudflare.com/client/v4/accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/access/policies?per_page=1000" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json")
+
+          if ! echo "$POLICY_RESP" | jq -e '.success == true' > /dev/null; then
+            echo "Unable to inspect Access policies. The API token needs Access: Apps and Policies Write."
+            echo "$POLICY_RESP" | jq .
+            exit 1
+          fi
+
+          ACCESS_POLICY_ID=$(echo "$POLICY_RESP" | jq -r '.result[] | select(.name == "Allow Cloudflare account members") | .id' | head -n 1)
+          if [[ -n "$ACCESS_POLICY_ID" ]]; then
+            terraform import cloudflare_zero_trust_access_policy.uptimeflare_status "$TF_VAR_CLOUDFLARE_ACCOUNT_ID/$ACCESS_POLICY_ID" || echo "WARNING: Access policy import failed, continuing..."
+          fi
+
+          ACCESS_RESP=$(curl -sS \
+            "https://api.cloudflare.com/client/v4/accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/access/apps?per_page=1000" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json")
 
           if ! echo "$ACCESS_RESP" | jq -e '.success == true' > /dev/null; then
             echo "Unable to inspect Cloudflare Access applications. The API token needs Access: Apps and Policies Write."
@@ -159,7 +189,6 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_CLOUDFLARE_ACCOUNT_ID: ${{ steps.fetch_account_id.outputs.account_id }}
-          TF_VAR_ACCESS_ALLOWED_EMAIL: ${{ secrets.ACCESS_ALLOWED_EMAIL }}
           D1_ID: ${{ env.D1_ID }}
 
       # Currently Terraform Cloudflare provider doesn't support direct upload, use wrangler to upload instead.
