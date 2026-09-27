@@ -101,14 +101,6 @@ resource "cloudflare_pages_project" "uptimeflare" {
   }
 }
 
-resource "cloudflare_pages_domain" "uptimeflare_status" {
-  account_id   = var.CLOUDFLARE_ACCOUNT_ID
-  project_name = cloudflare_pages_project.uptimeflare.name
-  name         = "status.novoagatto.com"
-
-  depends_on = [cloudflare_pages_project.uptimeflare]
-}
-
 resource "cloudflare_dns_record" "uptimeflare_status" {
   zone_id = var.CLOUDFLARE_ZONE_ID
   name    = "status.novoagatto.com"
@@ -118,7 +110,16 @@ resource "cloudflare_dns_record" "uptimeflare_status" {
   proxied = true
   comment = "UptimeFlare Cloudflare Pages"
 
-  depends_on = [cloudflare_pages_domain.uptimeflare_status]
+  depends_on = [cloudflare_pages_project.uptimeflare]
+}
+
+# Pages validates the hostname through DNS, so create the CNAME first.
+resource "cloudflare_pages_domain" "uptimeflare_status" {
+  account_id   = var.CLOUDFLARE_ACCOUNT_ID
+  project_name = cloudflare_pages_project.uptimeflare.name
+  name         = "status.novoagatto.com"
+
+  depends_on = [cloudflare_dns_record.uptimeflare_status]
 }
 
 # Use Cloudflare itself as the identity provider. Authentication is backed by
