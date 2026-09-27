@@ -1,134 +1,133 @@
-// This is a simplified example config file for quickstart
-// Some not frequently used features are omitted/commented out here
-// For a full-featured example, please refer to `uptime.config.full.ts`
+import { MaintenanceConfig, MonitorTarget, PageConfig, WorkerConfig } from './types/config'
 
-// Don't edit this line
-import { MaintenanceConfig, PageConfig, WorkerConfig } from './types/config'
+/**
+ * Initial monitor set for Romulo's exposed services.
+ *
+ * We intentionally monitor public hostnames instead of LAN destinations so the
+ * checks validate the same path an external user takes: DNS/TLS/reverse proxy +
+ * application.
+ *
+ * Common non-5xx responses are accepted because several services are APIs,
+ * auth gateways, or redirect to a login page at "/". A 5xx response, timeout,
+ * DNS/TLS failure, or connection failure is still treated as downtime.
+ */
+const reachableCodes = [
+  200, 201, 202, 204,
+  301, 302, 303, 307, 308,
+  400, 401, 403, 404, 405, 409, 422, 429,
+]
+
+const web = (id: string, name: string, target: string, tooltip?: string): MonitorTarget => ({
+  id,
+  name,
+  method: 'GET',
+  target,
+  statusPageLink: target,
+  expectedCodes: reachableCodes,
+  timeout: 10000,
+  ...(tooltip ? { tooltip } : {}),
+})
 
 const pageConfig: PageConfig = {
-  // Title for your status page
-  title: "lyc8503's Status Page",
-  // Links shown at the header of your status page, could set `highlight` to `true`
-  links: [
-    { link: 'https://github.com/lyc8503', label: 'GitHub' },
-    { link: 'https://blog.lyc8503.net/', label: 'Blog' },
-    { link: 'mailto:me@lyc8503.net', label: 'Email Me', highlight: true },
-  ],
+  title: 'Infrastructure Status',
+  links: [],
+  group: {
+    '🌐 Public & Work': [
+      'api-grupomiau',
+      'test-novoagatto',
+      'wedding',
+      'appwrite',
+    ],
+    '🧰 Infrastructure': [
+      'docker',
+      'fail2ban',
+      'frigate',
+      'headplane',
+      'headscale',
+      'nginx',
+      'ntfy',
+      'oauth2',
+      'seelf',
+      'server',
+      'sync',
+      'uptime',
+      'wg',
+    ],
+    '🤖 AI & Automation': [
+      'cliproxy',
+      'karakeep',
+      'llm',
+      'miniflux',
+      'n8n',
+      'postiz',
+      'rss',
+    ],
+    '📦 Apps & Data': [
+      'auth',
+      'immich',
+      'it-tools',
+      'matomo',
+      'microbin',
+      'nocodb',
+      'onlyoffice',
+      'paperless',
+      'pdf',
+      'pocketid',
+      'romm',
+      'seadoc',
+      'seafile',
+    ],
+  },
 }
 
 const workerConfig: WorkerConfig = {
-  // Define all your monitors here
+  kvWriteCooldownMinutes: 3,
   monitors: [
-    // Example HTTP Monitor
-    {
-      // `id` should be unique, history will be kept if the `id` remains constant
-      id: 'foo_monitor',
-      // `name` is used at status page and callback message
-      name: 'My API Monitor',
-      // `method` should be a valid HTTP Method
-      method: 'GET',
-      // `target` is a valid URL
-      target: 'https://example.com',
-      // [OPTIONAL] `tooltip` is ONLY used at status page to show a tooltip
-      tooltip: 'This is a tooltip for this monitor',
-      // [OPTIONAL] `statusPageLink` is ONLY used for clickable link at status page
-      statusPageLink: 'https://example.com',
-      // [OPTIONAL] `expectedCodes` is an array of acceptable HTTP response codes, if not specified, default to 2xx
-      expectedCodes: [200],
-      // [OPTIONAL] `timeout` in millisecond, if not specified, default to 10000
-      timeout: 10000,
-      // [OPTIONAL] headers to be sent
-      headers: {
-        'User-Agent': 'Uptimeflare',
-        Authorization: 'Bearer YOUR_TOKEN_HERE',
-      },
-      // [OPTIONAL] body to be sent (require POST/PUT/PATCH method)
-      // body: 'Hello, world!',
-      // [OPTIONAL] if specified, the response must contains the keyword to be considered as operational.
-      // responseKeyword: 'success',
-      // [OPTIONAL] if specified, the response must NOT contains the keyword to be considered as operational.
-      // responseForbiddenKeyword: 'bad gateway',
-      // [OPTIONAL] if specified, will call the check proxy to check the monitor, mainly for geo-specific checks
-      // refer to docs https://github.com/lyc8503/UptimeFlare/wiki/Check-proxy-setup before setting this value
-      // currently supports `worker://`, `globalping://` and `http(s)://` proxies
-      // checkProxy: 'worker://weur',
-      // [OPTIONAL] if true, the check will fallback to local if the specified proxy is down
-      // checkProxyFallback: true,
-    },
-    // Example TCP Monitor
-    {
-      id: 'test_tcp_monitor',
-      name: 'Example TCP Monitor',
-      // `method` should be `TCP_PING` for tcp monitors
-      method: 'TCP_PING',
-      // `target` should be `host:port` for tcp monitors
-      target: '1.2.3.4:22',
-      tooltip: 'My production server SSH',
-      statusPageLink: 'https://example.com',
-      timeout: 5000,
-    },
+    web('api-grupomiau', 'Miau API', 'https://api.grupomiau.co'),
+    web('appwrite', 'Appwrite', 'https://appwrite.novoagatto.com'),
+    web('auth', 'Auth', 'https://auth.novoagatto.com'),
+    web('cliproxy', 'CLI Proxy', 'https://cliproxy.novoagatto.com'),
+    web('docker', 'Docker / Dockhand', 'https://docker.novoagatto.com'),
+    web('fail2ban', 'Fail2ban', 'https://fail2ban.novoagatto.com'),
+    web('frigate', 'Frigate', 'https://frigate.novoagatto.com'),
+    web('headplane', 'Headplane', 'https://headplane.novoagatto.com'),
+    web('headscale', 'Headscale', 'https://headscale.novoagatto.com'),
+    web('immich', 'Immich', 'https://immich.novoagatto.com'),
+    web('it-tools', 'IT Tools', 'https://it.novoagatto.com'),
+    web('karakeep', 'KaraKeep', 'https://karakeep.novoagatto.com'),
+    web('llm', 'LLM', 'https://llm.novoagatto.com'),
+    web('matomo', 'Matomo', 'https://matomo.novoagatto.com'),
+    web('microbin', 'MicroBin', 'https://microbin.novoagatto.com'),
+    web('miniflux', 'Miniflux', 'https://miniflux.novoagatto.com'),
+    web('n8n', 'n8n', 'https://n8n.novoagatto.com'),
+    web('nginx', 'Nginx Proxy Manager', 'https://nginx.novoagatto.com'),
+    web('nocodb', 'NocoDB', 'https://nocodb.novoagatto.com'),
+    web('ntfy', 'ntfy', 'https://ntfy.novoagatto.com'),
+    web('oauth2', 'OAuth2 Proxy', 'https://oauth2.novoagatto.com'),
+    web('onlyoffice', 'OnlyOffice', 'https://onlyoffice.novoagatto.com'),
+    web('paperless', 'Paperless', 'https://paperless.novoagatto.com'),
+    web('pdf', 'Stirling PDF', 'https://pdf.novoagatto.com'),
+    web('pocketid', 'Pocket ID', 'https://pocketid.novoagatto.com'),
+    web('postiz', 'Postiz', 'https://postiz.novoagatto.com'),
+    web('romm', 'RomM', 'https://romm.novoagatto.com'),
+    web('rss', 'RSS', 'https://rss.novoagatto.com'),
+    web('seadoc', 'SeaDoc', 'https://seadoc.novoagatto.com'),
+    web('seafile', 'Seafile', 'https://seafile.novoagatto.com'),
+    web('seelf', 'Seelf', 'https://seelf.novoagatto.com'),
+    web('server', 'Server', 'https://server.novoagatto.com'),
+    web('sync', 'Sync', 'https://sync.novoagatto.com'),
+    web('test-novoagatto', 'Novoa Gatto Test', 'https://test.novoagatto.com'),
+    web('uptime', 'Existing Uptime', 'https://uptime.novoagatto.com'),
+    web('wedding', 'Wedding', 'https://wedding.novoagatto.com'),
+    web('wg', 'WireGuard', 'https://wg.novoagatto.com'),
   ],
-  // [Optional] Notification settings
   notification: {
-    // [Optional] Notification webhook settings, if not specified, no notification will be sent
-    // More info at Wiki: https://github.com/lyc8503/UptimeFlare/wiki/Setup-notification
-    webhook: {
-      // [Required] webhook URL (example: Telegram Bot API)
-      url: 'https://api.telegram.org/bot123456:ABCDEF/sendMessage',
-      // [Optional] HTTP method, default to 'GET' for payloadType=param, 'POST' otherwise
-      // method: 'POST',
-      // [Optional] headers to be sent
-      // headers: {
-      //   foo: 'bar',
-      // },
-      // [Required] Specify how to encode the payload
-      // Should be one of 'param', 'json' or 'x-www-form-urlencoded'
-      // 'param': append url-encoded payload to URL search parameters
-      // 'json': POST json payload as body, set content-type header to 'application/json'
-      // 'x-www-form-urlencoded': POST url-encoded payload as body, set content-type header to 'x-www-form-urlencoded'
-      payloadType: 'x-www-form-urlencoded',
-      // [Required] payload to be sent
-      // $MSG will be replaced with the human-readable notification message
-      payload: {
-        chat_id: 12345678,
-        text: '$MSG',
-      },
-      // [Optional] timeout calling this webhook, in millisecond, default to 5000
-      timeout: 10000,
-    },
-    // [Optional] timezone used in notification messages, default to "Etc/GMT"
-    timeZone: 'Asia/Shanghai',
-    // [Optional] grace period in minutes before sending a notification
-    // notification will be sent only if the monitor is down for N continuous checks after the initial failure
-    // if not specified, notification will be sent immediately
-    gracePeriod: 5,
+    timeZone: 'America/Sao_Paulo',
+    gracePeriod: 2,
+    skipErrorChangeNotification: true,
   },
 }
 
-// You can define multiple maintenances here
-// During maintenance, an alert will be shown at status page
-// Also, related downtime notifications will be skipped (if any)
-// Of course, you can leave it empty if you don't need this feature
+const maintenances: MaintenanceConfig[] = []
 
-// const maintenances: MaintenanceConfig[] = []
-
-const maintenances: MaintenanceConfig[] = [
-  {
-    // [Optional] Monitor IDs to be affected by this maintenance
-    monitors: ['foo_monitor', 'bar_monitor'],
-    // [Optional] default to "Scheduled Maintenance" if not specified
-    title: 'Test Maintenance',
-    // Description of the maintenance, will be shown at status page
-    body: 'This is a test maintenance, server software upgrade',
-    // Start time of the maintenance, in UNIX timestamp or ISO 8601 format
-    start: '2020-01-01T00:00:00+08:00',
-    // [Optional] end time of the maintenance, in UNIX timestamp or ISO 8601 format
-    // if not specified, the maintenance will be considered as on-going
-    end: '2050-01-01T00:00:00+08:00',
-    // [Optional] color of the maintenance alert at status page, default to "yellow"
-    color: 'blue',
-  },
-]
-
-// Don't edit this line
 export { maintenances, pageConfig, workerConfig }
