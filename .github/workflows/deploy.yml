@@ -74,12 +74,35 @@ jobs:
           D1_ID: ${{ env.D1_ID }}
 
       - name: Deploy using Terraform
-        # As we don't save terraform state somewhere, we need to import the existing resources
+        # Terraform state is intentionally ephemeral in this project, so discover
+        # and import resources that may already exist before each apply.
         run: |
-          terraform init
+          set -euo pipefail
 
-          DO_RESP=$(curl "https://api.cloudflare.com/client/v4/accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/workers/durable_objects/namespaces?per_page=1000" \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
+          if [[ -z "$TF_VAR_ACCESS_ALLOWED_EMAIL" ]]; then
+            echo "Missing GitHub Actions secret ACCESS_ALLOWED_EMAIL."
+            exit 1
+          fi
+
+          terraform init
+          terraform validate
+
+          ZONE_RESP=$(curl -sS             "https://api.cloudflare.com/client/v4/zones?name=novoagatto.com&account.id=$TF_VAR_CLOUDFLARE_ACCOUNT_ID&per_page=50"             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             -H "Content-Type: application/json")
+
+          if ! echo "$ZONE_RESP" | jq -e '.success == true' > /dev/null; then
+            echo "Unable to resolve novoagatto.com zone. The API token needs Zone Read permission."
+            echo "$ZONE_RESP" | jq .
+            exit 1
+          fi
+
+          ZONE_ID=$(echo "$ZONE_RESP" | jq -r '.result[0].id // empty')
+          if [[ -z "$ZONE_ID" ]]; then
+            echo "Zone novoagatto.com was not found in this Cloudflare account."
+            exit 1
+          fi
+          export TF_VAR_CLOUDFLARE_ZONE_ID="$ZONE_ID"
+
+          DO_RESP=$(curl -sS             "https://api.cloudflare.com/client/v4/accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/workers/durable_objects/namespaces?per_page=1000"             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN")
 
           if echo "$DO_RESP" | jq -e '.result[] | select(.script == "uptimeflare_worker" and .class == "RemoteChecker")' > /dev/null; then
             echo "Existing Durable Object namespace found for uptimeflare_worker RemoteChecker. No migration needed."
@@ -88,16 +111,55 @@ jobs:
             export TF_VAR_enable_do_migration=true
           fi
 
-          echo "Try importing existing resources..."
+          echo "Try importing existing core resources..."
           terraform import cloudflare_d1_database.uptimeflare_d1 "$TF_VAR_CLOUDFLARE_ACCOUNT_ID/$D1_ID"
           terraform import cloudflare_workers_script.uptimeflare_worker "$TF_VAR_CLOUDFLARE_ACCOUNT_ID/uptimeflare_worker" || echo "WARNING: Worker script import failed, continuing..."
           terraform import cloudflare_workers_cron_trigger.uptimeflare_worker_cron "$TF_VAR_CLOUDFLARE_ACCOUNT_ID/uptimeflare_worker" || echo "WARNING: Cron trigger import failed, continuing..."
           terraform import cloudflare_pages_project.uptimeflare "$TF_VAR_CLOUDFLARE_ACCOUNT_ID/uptimeflare" || echo "WARNING: Pages project import failed, continuing..."
 
+          echo "Try importing existing custom-domain resources..."
+          terraform import cloudflare_pages_domain.uptimeflare_status "$TF_VAR_CLOUDFLARE_ACCOUNT_ID/uptimeflare/status.novoagatto.com" || echo "Pages custom domain does not exist yet; Terraform will create it."
+
+          DNS_RESP=$(curl -sS             "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?name=status.novoagatto.com&per_page=100"             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             -H "Content-Type: application/json")
+
+          if ! echo "$DNS_RESP" | jq -e '.success == true' > /dev/null; then
+            echo "Unable to inspect DNS records. The API token needs DNS Write permission for novoagatto.com."
+            echo "$DNS_RESP" | jq .
+            exit 1
+          fi
+
+          DNS_ID=$(echo "$DNS_RESP" | jq -r '.result[0].id // empty')
+          if [[ -n "$DNS_ID" ]]; then
+            terraform import cloudflare_dns_record.uptimeflare_status "$ZONE_ID/$DNS_ID" || echo "WARNING: DNS record import failed, continuing..."
+          fi
+
+          ACCESS_RESP=$(curl -sS             "https://api.cloudflare.com/client/v4/accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/access/apps?per_page=1000"             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"             -H "Content-Type: application/json")
+
+          if ! echo "$ACCESS_RESP" | jq -e '.success == true' > /dev/null; then
+            echo "Unable to inspect Cloudflare Access applications. The API token needs Access: Apps and Policies Write."
+            echo "$ACCESS_RESP" | jq .
+            exit 1
+          fi
+
+          ACCESS_APP_ID=$(echo "$ACCESS_RESP" | jq -r '
+            .result[]
+            | select(
+                .domain == "status.novoagatto.com"
+                or .name == "Miau Infrastructure Status"
+                or any(.destinations[]?; .uri == "status.novoagatto.com")
+              )
+            | .id
+          ' | head -n 1)
+
+          if [[ -n "$ACCESS_APP_ID" ]]; then
+            terraform import cloudflare_zero_trust_access_application.uptimeflare_status "accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/$ACCESS_APP_ID" || echo "WARNING: Access application import failed, continuing..."
+          fi
+
           terraform apply -auto-approve -input=false
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_CLOUDFLARE_ACCOUNT_ID: ${{ steps.fetch_account_id.outputs.account_id }}
+          TF_VAR_ACCESS_ALLOWED_EMAIL: ${{ secrets.ACCESS_ALLOWED_EMAIL }}
           D1_ID: ${{ env.D1_ID }}
 
       # Currently Terraform Cloudflare provider doesn't support direct upload, use wrangler to upload instead.
