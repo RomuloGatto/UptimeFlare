@@ -16,26 +16,37 @@ variable "CLOUDFLARE_ACCOUNT_ID" {
   type = string
 }
 
+variable "CLOUDFLARE_ZONE_ID" {
+  # resolved by the GitHub Actions workflow for novoagatto.com
+  type = string
+}
+
+variable "ACCESS_ALLOWED_EMAIL" {
+  # read from GitHub Actions secret ACCESS_ALLOWED_EMAIL
+  type      = string
+  sensitive = true
+}
+
 variable "enable_do_migration" {
   type    = bool
   default = false
 }
 
 resource "cloudflare_d1_database" "uptimeflare_d1" {
-  account_id            = var.CLOUDFLARE_ACCOUNT_ID
-  name                  = "uptimeflare_d1"
+  account_id = var.CLOUDFLARE_ACCOUNT_ID
+  name       = "uptimeflare_d1"
   read_replication = {
     mode = "auto"
   }
 }
 
 resource "cloudflare_workers_script" "uptimeflare_worker" {
-  account_id          = var.CLOUDFLARE_ACCOUNT_ID
-  script_name         = "uptimeflare_worker"
-  main_module         = "worker/dist/index.js"
-  content_file        = "worker/dist/index.js"
-  content_sha256      = filesha256("worker/dist/index.js")
-  compatibility_date  = "2025-04-02"
+  account_id         = var.CLOUDFLARE_ACCOUNT_ID
+  script_name        = "uptimeflare_worker"
+  main_module        = "worker/dist/index.js"
+  content_file       = "worker/dist/index.js"
+  content_sha256     = filesha256("worker/dist/index.js")
+  compatibility_date = "2025-04-02"
   compatibility_flags = ["nodejs_compat"]
 
   observability = {
@@ -66,7 +77,7 @@ resource "cloudflare_workers_cron_trigger" "uptimeflare_worker_cron" {
   account_id  = var.CLOUDFLARE_ACCOUNT_ID
   script_name = cloudflare_workers_script.uptimeflare_worker.script_name
   schedules = [{
-    cron = "* * * * *" # every 1 minute, you can reduce the write counts by increase the worker settings of `kvWriteCooldownMinutes`
+    cron = "* * * * *" # every 1 minute
   }]
 }
 
@@ -76,7 +87,7 @@ resource "cloudflare_pages_project" "uptimeflare" {
   production_branch = "main"
 
   deployment_configs = {
-    # SMH Cloudflare provider will throw an error without preview config
+    # Cloudflare provider requires a preview config.
     preview = {
       fail_open = false
     }
@@ -92,8 +103,60 @@ resource "cloudflare_pages_project" "uptimeflare" {
     }
   }
 
-  # SMH it will error without this build_config
+  # Cloudflare provider requires a build config.
   build_config = {
     root_dir = "/"
   }
+}
+
+# Attach the private status hostname to the Pages project first. Access must be
+# created only after the custom domain exists, otherwise Pages domain validation
+# can fail.
+resource "cloudflare_pages_domain" "uptimeflare_status" {
+  account_id   = var.CLOUDFLARE_ACCOUNT_ID
+  project_name = cloudflare_pages_project.uptimeflare.name
+  name         = "status.novoagatto.com"
+
+  depends_on = [cloudflare_pages_project.uptimeflare]
+}
+
+resource "cloudflare_dns_record" "uptimeflare_status" {
+  zone_id = var.CLOUDFLARE_ZONE_ID
+  name    = "status.novoagatto.com"
+  type    = "CNAME"
+  content = cloudflare_pages_project.uptimeflare.subdomain
+  ttl     = 1
+  proxied = true
+  comment = "UptimeFlare Cloudflare Pages"
+
+  depends_on = [cloudflare_pages_domain.uptimeflare_status]
+}
+
+# Protect the custom hostname with Cloudflare Access. The policy is inline so
+# the whole Access configuration is managed as one Terraform resource.
+resource "cloudflare_zero_trust_access_application" "uptimeflare_status" {
+  account_id  = var.CLOUDFLARE_ACCOUNT_ID
+  name        = "Miau Infrastructure Status"
+  type        = "self_hosted"
+  domain      = "status.novoagatto.com"
+  session_duration = "24h"
+
+  app_launcher_visible      = false
+  auto_redirect_to_identity = false
+
+  policies = [{
+    name       = "Allow status owner"
+    decision   = "allow"
+    precedence = 1
+    include = [{
+      email = {
+        email = var.ACCESS_ALLOWED_EMAIL
+      }
+    }]
+  }]
+
+  depends_on = [
+    cloudflare_pages_domain.uptimeflare_status,
+    cloudflare_dns_record.uptimeflare_status,
+  ]
 }
