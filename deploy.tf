@@ -2,7 +2,7 @@ terraform {
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 5"
+      version = ">= 5.26.0, < 6.0.0"
     }
   }
 }
@@ -19,12 +19,6 @@ variable "CLOUDFLARE_ACCOUNT_ID" {
 variable "CLOUDFLARE_ZONE_ID" {
   # resolved by the GitHub Actions workflow for novoagatto.com
   type = string
-}
-
-variable "ACCESS_ALLOWED_EMAIL" {
-  # read from GitHub Actions secret ACCESS_ALLOWED_EMAIL
-  type      = string
-  sensitive = true
 }
 
 variable "enable_do_migration" {
@@ -77,7 +71,7 @@ resource "cloudflare_workers_cron_trigger" "uptimeflare_worker_cron" {
   account_id  = var.CLOUDFLARE_ACCOUNT_ID
   script_name = cloudflare_workers_script.uptimeflare_worker.script_name
   schedules = [{
-    cron = "* * * * *" # every 1 minute
+    cron = "* * * * *"
   }]
 }
 
@@ -87,7 +81,6 @@ resource "cloudflare_pages_project" "uptimeflare" {
   production_branch = "main"
 
   deployment_configs = {
-    # Cloudflare provider requires a preview config.
     preview = {
       fail_open = false
     }
@@ -103,15 +96,11 @@ resource "cloudflare_pages_project" "uptimeflare" {
     }
   }
 
-  # Cloudflare provider requires a build config.
   build_config = {
     root_dir = "/"
   }
 }
 
-# Attach the private status hostname to the Pages project first. Access must be
-# created only after the custom domain exists, otherwise Pages domain validation
-# can fail.
 resource "cloudflare_pages_domain" "uptimeflare_status" {
   account_id   = var.CLOUDFLARE_ACCOUNT_ID
   project_name = cloudflare_pages_project.uptimeflare.name
@@ -132,27 +121,46 @@ resource "cloudflare_dns_record" "uptimeflare_status" {
   depends_on = [cloudflare_pages_domain.uptimeflare_status]
 }
 
-# Protect the custom hostname with Cloudflare Access. The policy is inline so
-# the whole Access configuration is managed as one Terraform resource.
-resource "cloudflare_zero_trust_access_application" "uptimeflare_status" {
-  account_id  = var.CLOUDFLARE_ACCOUNT_ID
-  name        = "Miau Infrastructure Status"
-  type        = "self_hosted"
-  domain      = "status.novoagatto.com"
+# Use Cloudflare itself as the identity provider. Authentication is backed by
+# the user's Cloudflare account security (including WebAuthn / Touch ID when
+# configured on the account), with no email OTP secret stored in GitHub.
+resource "cloudflare_zero_trust_access_identity_provider" "cloudflare" {
+  account_id = var.CLOUDFLARE_ACCOUNT_ID
+  name       = "Cloudflare"
+  type       = "cloudflare"
+
+  config = {
+    restrict_to_account_members = true
+  }
+}
+
+resource "cloudflare_zero_trust_access_policy" "uptimeflare_status" {
+  account_id       = var.CLOUDFLARE_ACCOUNT_ID
+  name             = "Allow Cloudflare account members"
+  decision         = "allow"
   session_duration = "24h"
 
+  include = [{
+    cloudflare_account_member = {
+      account_id = var.CLOUDFLARE_ACCOUNT_ID
+    }
+  }]
+}
+
+resource "cloudflare_zero_trust_access_application" "uptimeflare_status" {
+  account_id       = var.CLOUDFLARE_ACCOUNT_ID
+  name             = "Miau Infrastructure Status"
+  type             = "self_hosted"
+  domain           = "status.novoagatto.com"
+  session_duration = "24h"
+
+  allowed_idps              = [cloudflare_zero_trust_access_identity_provider.cloudflare.id]
+  auto_redirect_to_identity = true
   app_launcher_visible      = false
-  auto_redirect_to_identity = false
 
   policies = [{
-    name       = "Allow status owner"
-    decision   = "allow"
+    id         = cloudflare_zero_trust_access_policy.uptimeflare_status.id
     precedence = 1
-    include = [{
-      email = {
-        email = var.ACCESS_ALLOWED_EMAIL
-      }
-    }]
   }]
 
   depends_on = [
