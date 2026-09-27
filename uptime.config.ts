@@ -10,16 +10,25 @@ const reachableCodes = [
   400, 401, 403, 404, 405, 409, 422, 429,
 ]
 
-const web = (id: string, name: string, target: string, tooltip?: string): MonitorTarget => ({
-  id,
-  name,
-  method: 'GET',
-  target,
-  statusPageLink: target,
-  expectedCodes: reachableCodes,
-  timeout: 10000,
-  ...(tooltip ? { tooltip } : {}),
+const fromEasternNorthAmerica = (monitor: MonitorTarget): MonitorTarget => ({
+  ...monitor,
+  // Cloudflare Durable Object location hint. This pins checks away from the
+  // cron Worker's arbitrary execution region (which was showing up in India).
+  checkProxy: 'worker://enam',
+  checkProxyFallback: true,
 })
+
+const web = (id: string, name: string, target: string, tooltip?: string): MonitorTarget =>
+  fromEasternNorthAmerica({
+    id,
+    name,
+    method: 'GET',
+    target,
+    statusPageLink: target,
+    expectedCodes: reachableCodes,
+    timeout: 10000,
+    ...(tooltip ? { tooltip } : {}),
+  })
 
 const pageConfig: PageConfig = {
   title: 'Miau Labs · Infrastructure Status',
@@ -59,7 +68,7 @@ const pageConfig: PageConfig = {
 const workerConfig: WorkerConfig = {
   kvWriteCooldownMinutes: 3,
   monitors: [
-    {
+    fromEasternNorthAmerica({
       id: 'auth',
       name: 'Auth',
       method: 'GET',
@@ -68,9 +77,9 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [204],
       timeout: 10000,
       hideLatencyChart: true,
-    },
+    }),
     web('cliproxy', 'CLI Proxy', 'https://cliproxy.novoagatto.com'),
-    {
+    fromEasternNorthAmerica({
       id: 'docker',
       name: 'Docker / Dockhand',
       method: 'GET',
@@ -79,9 +88,9 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       responseKeyword: '"status":"ok"',
       timeout: 10000,
-    },
+    }),
     web('fail2ban', 'Fail2ban', 'https://fail2ban.novoagatto.com'),
-    {
+    fromEasternNorthAmerica({
       id: 'frigate',
       name: 'Frigate',
       method: 'GET',
@@ -89,8 +98,8 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://frigate.novoagatto.com',
       expectedCodes: [200],
       timeout: 10000,
-    },
-    {
+    }),
+    fromEasternNorthAmerica({
       id: 'headplane',
       name: 'Headplane',
       method: 'GET',
@@ -98,8 +107,8 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://headplane.novoagatto.com',
       expectedCodes: [200, 301, 302, 303, 307, 308, 401, 403],
       timeout: 10000,
-    },
-    {
+    }),
+    fromEasternNorthAmerica({
       id: 'headscale',
       name: 'Headscale',
       method: 'GET',
@@ -107,8 +116,8 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://headscale.novoagatto.com',
       expectedCodes: [200],
       timeout: 10000,
-    },
-    {
+    }),
+    fromEasternNorthAmerica({
       id: 'immich',
       name: 'Immich',
       method: 'GET',
@@ -117,9 +126,9 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       responseKeyword: 'pong',
       timeout: 10000,
-    },
+    }),
     web('it-tools', 'IT Tools', 'https://it.novoagatto.com'),
-    {
+    fromEasternNorthAmerica({
       id: 'karakeep',
       name: 'KaraKeep',
       method: 'GET',
@@ -127,8 +136,8 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://karakeep.novoagatto.com',
       expectedCodes: [200],
       timeout: 10000,
-    },
-    {
+    }),
+    fromEasternNorthAmerica({
       id: 'llm',
       name: 'LLM',
       method: 'GET',
@@ -136,9 +145,9 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://llm.novoagatto.com',
       expectedCodes: [200],
       timeout: 10000,
-    },
+    }),
     web('nginx', 'Nginx Proxy Manager', 'https://nginx.novoagatto.com'),
-    {
+    fromEasternNorthAmerica({
       id: 'oauth2',
       name: 'OAuth2 Proxy',
       method: 'GET',
@@ -147,8 +156,8 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       timeout: 10000,
       hideLatencyChart: true,
-    },
-    {
+    }),
+    fromEasternNorthAmerica({
       id: 'onlyoffice',
       name: 'OnlyOffice',
       method: 'GET',
@@ -157,9 +166,9 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       responseKeyword: 'true',
       timeout: 10000,
-    },
+    }),
     web('paperless', 'Paperless', 'https://paperless.novoagatto.com'),
-    {
+    fromEasternNorthAmerica({
       id: 'pdf',
       name: 'Stirling PDF',
       method: 'GET',
@@ -167,8 +176,8 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://pdf.novoagatto.com',
       expectedCodes: [200, 301, 302, 303, 307, 308, 401, 403],
       timeout: 10000,
-    },
-    {
+    }),
+    fromEasternNorthAmerica({
       id: 'pocketid',
       name: 'Pocket ID',
       method: 'GET',
@@ -177,10 +186,10 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [204],
       timeout: 10000,
       hideLatencyChart: true,
-    },
+    }),
     web('postiz', 'Postiz', 'https://postiz.novoagatto.com'),
     web('seadoc', 'SeaDoc', 'https://seadoc.novoagatto.com'),
-    {
+    fromEasternNorthAmerica({
       id: 'seafile',
       name: 'Seafile',
       method: 'GET',
@@ -189,7 +198,7 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       responseKeyword: 'pong',
       timeout: 10000,
-    },
+    }),
   ],
   notification: {
     timeZone: 'America/Sao_Paulo',
