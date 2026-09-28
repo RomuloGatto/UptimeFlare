@@ -5,6 +5,10 @@ on:
     branches: ['main']
   workflow_dispatch:
 
+concurrency:
+  group: uptimeflare-production
+  cancel-in-progress: true
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -100,6 +104,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ steps.fetch_account_id.outputs.account_id }}
           D1_ID: ${{ env.D1_ID }}
+          HEALTHCHECKS_PING_URL: ${{ secrets.HEALTHCHECKS_PING_URL }}
 
       - name: Deploy using Terraform
         # Terraform state is intentionally ephemeral in this project, so discover
@@ -213,7 +218,36 @@ jobs:
             terraform import cloudflare_zero_trust_access_application.uptimeflare_status "accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/$ACCESS_APP_ID" || echo "WARNING: Access application import failed, continuing..."
           fi
 
+          PAGES_ACCESS_APP_ID=$(echo "$ACCESS_RESP" | jq -r '
+            .result[]
+            | select(
+                .domain == "uptimeflare.pages.dev"
+                or any(.destinations[]?; .uri == "uptimeflare.pages.dev")
+              )
+            | .id
+          ' | head -n 1)
+
+          if [[ -n "$PAGES_ACCESS_APP_ID" ]]; then
+            terraform import cloudflare_zero_trust_access_application.uptimeflare_pages_dev "accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/$PAGES_ACCESS_APP_ID" || echo "WARNING: Pages Access application import failed, continuing..."
+          fi
+
           terraform apply -auto-approve -input=false
+
+          # Healthchecks.io (or any compatible dead-man endpoint) stays outside
+          # Cloudflare. Keep its ping URL as a Worker secret so it never lands
+          # in the repository or generated bundle.
+          if [[ -n "${HEALTHCHECKS_PING_URL:-}" ]]; then
+            echo "Configure external dead-man heartbeat secret..."
+            HEARTBEAT_SECRET_PAYLOAD=$(jq -n --arg text "$HEALTHCHECKS_PING_URL" '{name:"HEALTHCHECKS_PING_URL", text:$text, type:"secret_text"}')
+            HEARTBEAT_SECRET_RESP=$(curl -sS -X PUT               "https://api.cloudflare.com/client/v4/accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/workers/scripts/uptimeflare_worker/secrets"               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"               -H "Content-Type: application/json"               --data "$HEARTBEAT_SECRET_PAYLOAD")
+            if ! echo "$HEARTBEAT_SECRET_RESP" | jq -e '.success == true' > /dev/null; then
+              echo "Unable to configure HEALTHCHECKS_PING_URL Worker secret."
+              echo "$HEARTBEAT_SECRET_RESP" | jq .
+              exit 1
+            fi
+          else
+            echo "HEALTHCHECKS_PING_URL is not set; external dead-man heartbeat remains disabled."
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_CLOUDFLARE_ACCOUNT_ID: ${{ steps.fetch_account_id.outputs.account_id }}

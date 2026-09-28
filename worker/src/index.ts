@@ -9,6 +9,7 @@ import pLimit from 'p-limit'
 export interface Env {
   REMOTE_CHECKER_DO: DurableObjectNamespace<RemoteChecker>
   UPTIMEFLARE_D1: D1Database
+  HEALTHCHECKS_PING_URL?: string
 }
 
 const Worker = {
@@ -247,6 +248,24 @@ const Worker = {
       await setToStore(env, 'state', state.getCompactedStateStr())
     } else {
       console.log('Skipping state update due to cooldown period.')
+    }
+
+    // External dead-man heartbeat: only signal success after the entire
+    // monitoring cycle has completed. The endpoint itself is stored as a
+    // Cloudflare Worker secret so it is not present in source or build output.
+    if (env.HEALTHCHECKS_PING_URL) {
+      try {
+        const heartbeatResponse = await fetch(env.HEALTHCHECKS_PING_URL, { method: 'GET' })
+        if (heartbeatResponse.ok) {
+          console.log('External dead-man heartbeat sent successfully.')
+        } else {
+          console.log('External dead-man heartbeat returned HTTP ' + heartbeatResponse.status)
+        }
+      } catch (e) {
+        console.log('Error sending external dead-man heartbeat: ' + e)
+      }
+    } else {
+      console.log('External dead-man heartbeat is not configured.')
     }
   },
 }
