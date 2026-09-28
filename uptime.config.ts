@@ -238,7 +238,7 @@ const workerConfig: WorkerConfig = {
   ],
   notification: {
     webhook: {
-      // Cloudflare-hosted Bark stays reachable even when the home connection is down.
+      // Cloudflare-hosted Bark stays reachable even when the home connection is down. Redeploy marker: bark-cutover.
       url: 'https://bark.novoagatto.com/push',
       method: 'POST',
       payloadType: 'json',
