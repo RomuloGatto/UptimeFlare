@@ -5,9 +5,9 @@ import { MaintenanceConfig, MonitorTarget, PageConfig, WorkerConfig } from './ty
  * takes: DNS/TLS/reverse proxy + application.
  */
 const reachableCodes = [
-  200, 201, 202, 204,
+  200,
   301, 302, 303, 307, 308,
-  400, 401, 403, 404, 405, 409, 422, 429,
+  401, 403,
 ]
 
 const fromEasternNorthAmerica = (monitor: MonitorTarget): MonitorTarget => ({
@@ -18,7 +18,13 @@ const fromEasternNorthAmerica = (monitor: MonitorTarget): MonitorTarget => ({
   checkProxyFallback: true,
 })
 
-const web = (id: string, name: string, target: string, tooltip?: string): MonitorTarget =>
+const web = (
+  id: string,
+  name: string,
+  target: string,
+  tooltip?: string,
+  hideLatencyChart = false
+): MonitorTarget =>
   fromEasternNorthAmerica({
     id,
     name,
@@ -28,6 +34,7 @@ const web = (id: string, name: string, target: string, tooltip?: string): Monito
     expectedCodes: reachableCodes,
     timeout: 10000,
     ...(tooltip ? { tooltip } : {}),
+    ...(hideLatencyChart ? { hideLatencyChart: true } : {}),
   })
 
 const pageConfig: PageConfig = {
@@ -36,31 +43,33 @@ const pageConfig: PageConfig = {
   favicon: '/miau-labs-mark.svg',
   links: [],
   group: {
-    '🧰 Infrastructure': [
-      'docker',
-      'fail2ban',
-      'frigate',
-      'headplane',
-      'headscale',
+    '🌐 Edge & Access': [
       'nginx',
+      'headscale',
+      'headplane',
       'oauth2',
+      'auth',
+      'pocketid',
+      'fail2ban',
+      'docker',
+    ],
+    '🏠 Core Home Services': [
+      'frigate',
+      'immich',
+      'seafile',
+      'paperless',
     ],
     '🤖 AI & Automation': [
+      'llm',
       'cliproxy',
       'karakeep',
-      'llm',
       'postiz',
     ],
-    '📦 Apps & Data': [
-      'auth',
-      'immich',
-      'it-tools',
+    '🧰 Utilities & Docs': [
       'onlyoffice',
-      'paperless',
       'pdf',
-      'pocketid',
       'seadoc',
-      'seafile',
+      'it-tools',
     ],
   },
 }
@@ -77,8 +86,9 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [204],
       timeout: 10000,
       hideLatencyChart: true,
+      tooltip: 'Authentication service health check',
     }),
-    web('cliproxy', 'CLI Proxy', 'https://cliproxy.novoagatto.com'),
+    web('cliproxy', 'CLI Proxy', 'https://cliproxy.novoagatto.com', 'LLM CLI/API proxy gateway'),
     fromEasternNorthAmerica({
       id: 'docker',
       name: 'Docker / Dockhand',
@@ -88,8 +98,9 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       responseKeyword: '"status":"ok"',
       timeout: 10000,
+      tooltip: 'Docker host and container management via Dockhand',
     }),
-    web('fail2ban', 'Fail2ban', 'https://fail2ban.novoagatto.com'),
+    web('fail2ban', 'Fail2ban', 'https://fail2ban.novoagatto.com', 'Host ban / intrusion protection dashboard', true),
     fromEasternNorthAmerica({
       id: 'frigate',
       name: 'Frigate',
@@ -98,6 +109,7 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://frigate.novoagatto.com',
       expectedCodes: [200],
       timeout: 10000,
+      tooltip: 'Camera NVR and object detection',
     }),
     fromEasternNorthAmerica({
       id: 'headplane',
@@ -107,6 +119,7 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://headplane.novoagatto.com',
       expectedCodes: [200, 301, 302, 303, 307, 308, 401, 403],
       timeout: 10000,
+      tooltip: 'Web UI for the Headscale control plane',
     }),
     fromEasternNorthAmerica({
       id: 'headscale',
@@ -116,6 +129,7 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://headscale.novoagatto.com',
       expectedCodes: [200],
       timeout: 10000,
+      tooltip: 'Tailscale-compatible private network control plane',
     }),
     fromEasternNorthAmerica({
       id: 'immich',
@@ -126,8 +140,9 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       responseKeyword: 'pong',
       timeout: 10000,
+      tooltip: 'Photo backup and media library',
     }),
-    web('it-tools', 'IT Tools', 'https://it.novoagatto.com'),
+    web('it-tools', 'IT Tools', 'https://it.novoagatto.com', 'Browser-based utility toolbox', true),
     fromEasternNorthAmerica({
       id: 'karakeep',
       name: 'KaraKeep',
@@ -136,6 +151,7 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://karakeep.novoagatto.com',
       expectedCodes: [200],
       timeout: 10000,
+      tooltip: 'Bookmark and knowledge archive',
     }),
     fromEasternNorthAmerica({
       id: 'llm',
@@ -145,8 +161,9 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://llm.novoagatto.com',
       expectedCodes: [200],
       timeout: 10000,
+      tooltip: 'LiteLLM gateway for local and remote models',
     }),
-    web('nginx', 'Nginx Proxy Manager', 'https://nginx.novoagatto.com'),
+    web('nginx', 'Nginx Proxy Manager', 'https://nginx.novoagatto.com', 'Primary reverse proxy / ingress for home services'),
     fromEasternNorthAmerica({
       id: 'oauth2',
       name: 'OAuth2 Proxy',
@@ -156,6 +173,7 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       timeout: 10000,
       hideLatencyChart: true,
+      tooltip: 'SSO authentication gateway',
     }),
     fromEasternNorthAmerica({
       id: 'onlyoffice',
@@ -166,8 +184,10 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       responseKeyword: 'true',
       timeout: 10000,
+      hideLatencyChart: true,
+      tooltip: 'Document editing backend',
     }),
-    web('paperless', 'Paperless', 'https://paperless.novoagatto.com'),
+    web('paperless', 'Paperless', 'https://paperless.novoagatto.com', 'Document archive and OCR'),
     fromEasternNorthAmerica({
       id: 'pdf',
       name: 'Stirling PDF',
@@ -176,6 +196,7 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://pdf.novoagatto.com',
       expectedCodes: [200, 301, 302, 303, 307, 308, 401, 403],
       timeout: 10000,
+      tooltip: 'PDF conversion and utility service',
     }),
     fromEasternNorthAmerica({
       id: 'pocketid',
@@ -186,9 +207,10 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [204],
       timeout: 10000,
       hideLatencyChart: true,
+      tooltip: 'Passkey / OIDC identity provider',
     }),
-    web('postiz', 'Postiz', 'https://postiz.novoagatto.com'),
-    web('seadoc', 'SeaDoc', 'https://seadoc.novoagatto.com'),
+    web('postiz', 'Postiz', 'https://postiz.novoagatto.com', 'Social publishing automation'),
+    web('seadoc', 'SeaDoc', 'https://seadoc.novoagatto.com', 'Collaborative document service'),
     fromEasternNorthAmerica({
       id: 'seafile',
       name: 'Seafile',
@@ -198,6 +220,7 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       responseKeyword: 'pong',
       timeout: 10000,
+      tooltip: 'File sync and storage',
     }),
   ],
   notification: {
