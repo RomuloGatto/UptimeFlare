@@ -78,6 +78,18 @@ const pageConfig: PageConfig = {
 const workerConfig: WorkerConfig = {
   kvWriteCooldownMinutes: 3,
   monitors: [
+    // TEMP: deliberate failure used to validate the complete Bark notification path.
+    // Remove after the alert is confirmed on the iPhone.
+    fromEasternNorthAmerica({
+      id: 'alert-test',
+      name: 'UptimeFlare Alert Test',
+      method: 'GET',
+      target: 'https://bark.novoagatto.com/ping',
+      expectedCodes: [599],
+      timeout: 10000,
+      hideLatencyChart: true,
+      tooltip: 'Temporary forced-failure notification test',
+    }),
     fromEasternNorthAmerica({
       id: 'auth',
       name: 'Auth',
