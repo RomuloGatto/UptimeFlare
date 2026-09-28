@@ -171,23 +171,3 @@ resource "cloudflare_zero_trust_access_application" "uptimeflare_status" {
 }
 
 
-# Protect the default Pages hostname too, so uptimeflare.pages.dev cannot bypass
-# the Access policy on status.novoagatto.com.
-resource "cloudflare_zero_trust_access_application" "uptimeflare_pages_dev" {
-  account_id       = var.CLOUDFLARE_ACCOUNT_ID
-  name             = "Miau Infrastructure Status · Pages"
-  type             = "self_hosted"
-  domain           = "uptimeflare.pages.dev"
-  session_duration = "24h"
-
-  allowed_idps              = [cloudflare_zero_trust_access_identity_provider.cloudflare.id]
-  auto_redirect_to_identity = true
-  app_launcher_visible      = false
-
-  policies = [{
-    id         = cloudflare_zero_trust_access_policy.uptimeflare_status.id
-    precedence = 1
-  }]
-
-  depends_on = [cloudflare_pages_project.uptimeflare]
-}
