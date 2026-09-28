@@ -45,6 +45,7 @@ const pageConfig: PageConfig = {
   group: {
     '🌐 Edge & Access': [
       'nginx',
+      'bark',
       'headscale',
       'headplane',
       'oauth2',
@@ -165,6 +166,18 @@ const workerConfig: WorkerConfig = {
     }),
     web('nginx', 'Nginx Proxy Manager', 'https://nginx.novoagatto.com', 'Primary reverse proxy / ingress for home services'),
     fromEasternNorthAmerica({
+      id: 'bark',
+      name: 'Bark',
+      method: 'GET',
+      target: 'https://bark.novoagatto.com/ping',
+      statusPageLink: 'https://bark.novoagatto.com',
+      expectedCodes: [200],
+      responseKeyword: 'pong',
+      timeout: 10000,
+      hideLatencyChart: true,
+      tooltip: 'Self-hosted push notification server',
+    }),
+    fromEasternNorthAmerica({
       id: 'oauth2',
       name: 'OAuth2 Proxy',
       method: 'GET',
@@ -224,8 +237,41 @@ const workerConfig: WorkerConfig = {
     }),
   ],
   notification: {
+    webhook: {
+      url: 'https://bark.novoagatto.com/push',
+      method: 'POST',
+      payloadType: 'json',
+      payload: {
+        device_key: '__BARK_DEVICE_KEY__',
+        title: 'UptimeFlare',
+        body: '$MSG',
+        group: 'UptimeFlare',
+        level: 'timeSensitive',
+      },
+      timeout: 10000,
+    },
     timeZone: 'America/Sao_Paulo',
     gracePeriod: 2,
+    // Alert only on services that represent the edge or core home functionality.
+    // Bark itself is intentionally skipped because it cannot notify about its own outage.
+    skipNotificationIds: [
+      'auth',
+      'bark',
+      'cliproxy',
+      'docker',
+      'fail2ban',
+      'headplane',
+      'it-tools',
+      'karakeep',
+      'llm',
+      'oauth2',
+      'onlyoffice',
+      'paperless',
+      'pdf',
+      'pocketid',
+      'postiz',
+      'seadoc',
+    ],
     skipErrorChangeNotification: true,
   },
 }
