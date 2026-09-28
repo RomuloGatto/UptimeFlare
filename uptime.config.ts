@@ -81,7 +81,7 @@ const workerConfig: WorkerConfig = {
     // TEMP: deliberate failure used to validate the complete Bark notification path.
     // Remove after the alert is confirmed on the iPhone.
     fromEasternNorthAmerica({
-      id: 'alert-test',
+      id: 'alert-test-2',
       name: 'UptimeFlare Alert Test',
       method: 'GET',
       target: 'https://bark.novoagatto.com/ping',

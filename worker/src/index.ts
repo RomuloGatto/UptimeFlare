@@ -137,6 +137,7 @@ const Worker = {
                 workerConfig.notification.gracePeriod * 60 + 30)
           ) {
             if (
+              monitorStatusChanged &&
               currentIncident.start[0] !== currentTimeSecond &&
               workerConfig.notification?.skipErrorChangeNotification
             ) {
