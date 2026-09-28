@@ -78,18 +78,6 @@ const pageConfig: PageConfig = {
 const workerConfig: WorkerConfig = {
   kvWriteCooldownMinutes: 3,
   monitors: [
-    // TEMP: deliberate failure used to validate the complete Bark notification path.
-    // Remove after the alert is confirmed on the iPhone.
-    fromEasternNorthAmerica({
-      id: 'alert-test-2',
-      name: 'UptimeFlare Alert Test',
-      method: 'GET',
-      target: 'https://bark.novoagatto.com/ping',
-      expectedCodes: [599],
-      timeout: 10000,
-      hideLatencyChart: true,
-      tooltip: 'Temporary forced-failure notification test',
-    }),
     fromEasternNorthAmerica({
       id: 'auth',
       name: 'Auth',
@@ -187,7 +175,7 @@ const workerConfig: WorkerConfig = {
       responseKeyword: 'pong',
       timeout: 10000,
       hideLatencyChart: true,
-      tooltip: 'Self-hosted push notification server',
+      tooltip: 'Cloudflare-hosted Bark push notification server',
     }),
     fromEasternNorthAmerica({
       id: 'oauth2',
