@@ -217,19 +217,6 @@ jobs:
             terraform import cloudflare_zero_trust_access_application.uptimeflare_status "accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/$ACCESS_APP_ID" || echo "WARNING: Access application import failed, continuing..."
           fi
 
-          PAGES_ACCESS_APP_ID=$(echo "$ACCESS_RESP" | jq -r '
-            .result[]
-            | select(
-                .domain == "uptimeflare.pages.dev"
-                or any(.destinations[]?; .uri == "uptimeflare.pages.dev")
-              )
-            | .id
-          ' | head -n 1)
-
-          if [[ -n "$PAGES_ACCESS_APP_ID" ]]; then
-            terraform import cloudflare_zero_trust_access_application.uptimeflare_pages_dev "accounts/$TF_VAR_CLOUDFLARE_ACCOUNT_ID/$PAGES_ACCESS_APP_ID" || echo "WARNING: Pages Access application import failed, continuing..."
-          fi
-
           terraform apply -auto-approve -input=false
 
         env:
