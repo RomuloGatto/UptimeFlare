@@ -238,6 +238,7 @@ const workerConfig: WorkerConfig = {
   ],
   notification: {
     webhook: {
+      // Cloudflare-hosted Bark stays reachable even when the home connection is down.
       url: 'https://bark.novoagatto.com/push',
       method: 'POST',
       payloadType: 'json',
