@@ -89,7 +89,17 @@ const workerConfig: WorkerConfig = {
       hideLatencyChart: true,
       tooltip: 'Authentication service health check',
     }),
-    web('cliproxy', 'CLI Proxy', 'https://cliproxy.novoagatto.com', 'LLM CLI/API proxy gateway'),
+    fromEasternNorthAmerica({
+      id: 'cliproxy',
+      name: 'CLI Proxy',
+      method: 'GET',
+      target: 'https://cliproxy.novoagatto.com/healthz',
+      statusPageLink: 'https://cliproxy.novoagatto.com',
+      expectedCodes: [200],
+      responseKeyword: '"status":"ok"',
+      timeout: 10000,
+      tooltip: 'LLM CLI/API proxy gateway health check',
+    }),
     fromEasternNorthAmerica({
       id: 'docker',
       name: 'Docker / Dockhand',
@@ -116,11 +126,13 @@ const workerConfig: WorkerConfig = {
       id: 'headplane',
       name: 'Headplane',
       method: 'GET',
-      target: 'https://headplane.novoagatto.com',
+      target: 'https://headplane.novoagatto.com/healthz',
       statusPageLink: 'https://headplane.novoagatto.com',
-      expectedCodes: [200, 301, 302, 303, 307, 308, 401, 403],
+      expectedCodes: [200],
+      responseKeyword: '"status":"OK"',
       timeout: 10000,
-      tooltip: 'Web UI for the Headscale control plane',
+      hideLatencyChart: true,
+      tooltip: 'Headplane health check including Headscale connectivity',
     }),
     fromEasternNorthAmerica({
       id: 'headscale',
@@ -164,7 +176,12 @@ const workerConfig: WorkerConfig = {
       timeout: 10000,
       tooltip: 'LiteLLM gateway for local and remote models',
     }),
-    web('nginx', 'Nginx Proxy Manager', 'https://nginx.novoagatto.com', 'Primary reverse proxy / ingress for home services'),
+    web(
+      'nginx',
+      'Nginx Proxy Manager',
+      'https://nginx.novoagatto.com',
+      'Primary reverse proxy / ingress; upstream healthcheck is container-internal'
+    ),
     fromEasternNorthAmerica({
       id: 'bark',
       name: 'Bark',
@@ -200,7 +217,12 @@ const workerConfig: WorkerConfig = {
       hideLatencyChart: true,
       tooltip: 'Document editing backend',
     }),
-    web('paperless', 'Paperless', 'https://paperless.novoagatto.com', 'Document archive and OCR'),
+    web(
+      'paperless',
+      'Paperless',
+      'https://paperless.novoagatto.com',
+      'Document archive and OCR; upstream container healthcheck probes the web root'
+    ),
     fromEasternNorthAmerica({
       id: 'pdf',
       name: 'Stirling PDF',
@@ -209,7 +231,7 @@ const workerConfig: WorkerConfig = {
       statusPageLink: 'https://pdf.novoagatto.com',
       expectedCodes: [200, 301, 302, 303, 307, 308, 401, 403],
       timeout: 10000,
-      tooltip: 'PDF conversion and utility service',
+      tooltip: 'PDF conversion and utility service; root reachability avoids version-dependent status endpoint behavior',
     }),
     fromEasternNorthAmerica({
       id: 'pocketid',
@@ -222,8 +244,23 @@ const workerConfig: WorkerConfig = {
       hideLatencyChart: true,
       tooltip: 'Passkey / OIDC identity provider',
     }),
-    web('postiz', 'Postiz', 'https://postiz.novoagatto.com', 'Social publishing automation'),
-    web('seadoc', 'SeaDoc', 'https://seadoc.novoagatto.com', 'Collaborative document service'),
+    web(
+      'postiz',
+      'Postiz',
+      'https://postiz.novoagatto.com',
+      'Social publishing automation; upstream Docker healthcheck probes the app root'
+    ),
+    fromEasternNorthAmerica({
+      id: 'seadoc',
+      name: 'SeaDoc',
+      method: 'GET',
+      target: 'https://seadoc.novoagatto.com/ping',
+      statusPageLink: 'https://seadoc.novoagatto.com',
+      expectedCodes: [200],
+      responseKeyword: 'pong',
+      timeout: 10000,
+      tooltip: 'Collaborative document service health check',
+    }),
     fromEasternNorthAmerica({
       id: 'seafile',
       name: 'Seafile',
