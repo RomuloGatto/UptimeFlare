@@ -64,7 +64,6 @@ const pageConfig: PageConfig = {
       'llm',
       'cliproxy',
       'karakeep',
-      'postiz',
     ],
     '🧰 Utilities & Docs': [
       'onlyoffice',
@@ -244,12 +243,6 @@ const workerConfig: WorkerConfig = {
       hideLatencyChart: true,
       tooltip: 'Passkey / OIDC identity provider',
     }),
-    web(
-      'postiz',
-      'Postiz',
-      'https://postiz.novoagatto.com',
-      'Social publishing automation; upstream Docker healthcheck probes the app root'
-    ),
     fromEasternNorthAmerica({
       id: 'seadoc',
       name: 'SeaDoc',
@@ -307,7 +300,6 @@ const workerConfig: WorkerConfig = {
       'paperless',
       'pdf',
       'pocketid',
-      'postiz',
       'seadoc',
     ],
     skipErrorChangeNotification: true,

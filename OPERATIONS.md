@@ -61,7 +61,6 @@ The public checks are intentionally conservative: use a documented health endpoi
 | SeaDoc | `/ping` | Native no-auth route returning `pong`. |
 | Nginx Proxy Manager | `/` | Upstream healthcheck is the container-local `/usr/bin/check-health` script, not an HTTP route. |
 | Paperless-ngx | `/` | Official Docker image healthcheck probes the web root; `/api/status/` requires authentication. |
-| Postiz | `/` | Official Compose healthcheck probes the application root; a standardized public `/health` endpoint is not provided. |
 | Stirling PDF | `/` | `/api/v1/info/status` has had version/auth behavior changes; root reachability is more stable for this external check. |
 | IT Tools | `/` | No stable dedicated health endpoint is documented. |
 | Fail2ban dashboard | `/` | Deployment-specific UI; no stable public health endpoint is assumed. |
