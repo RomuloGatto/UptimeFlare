@@ -178,9 +178,9 @@ const workerConfig: WorkerConfig = {
     }),
     web(
       'nginx',
-      'Home Edge / Nginx',
+      'Nginx Proxy Manager',
       'https://nginx.novoagatto.com',
-      'Home uplink / primary ingress root-cause monitor; upstream healthcheck is container-internal'
+      'Primary reverse proxy / ingress; upstream healthcheck is container-internal'
     ),
     fromEasternNorthAmerica({
       id: 'bark',
@@ -304,14 +304,11 @@ const workerConfig: WorkerConfig = {
       'seadoc',
     ],
     skipErrorChangeNotification: true,
-    // Root-cause suppression: if the home edge is down, child service failures
-    // are expected symptoms and should not create an alert storm.
-    suppressWhenDown: {
-      headscale: ['nginx'],
-      frigate: ['nginx'],
-      immich: ['nginx'],
-      seafile: ['nginx'],
-    },
+    // Correlate core home outages by priority. These four monitors are checked
+    // every minute even though the rest of the monitor set is batched. If more
+    // than one is down, only the first failing monitor in this list notifies.
+    // This avoids alert storms during power or internet outages.
+    priorityIds: ['headscale', 'frigate', 'immich', 'seafile'],
   },
 }
 
