@@ -47,9 +47,9 @@ Notifications are delivered through the Cloudflare-hosted Bark service at `bark.
 - grace period: 2 minutes
 - Bark itself is excluded from notifications because it cannot report its own outage
 - non-critical/admin services are listed in `skipNotificationIds`
-- core outage correlation is priority-based: Headscale -> Frigate -> Immich -> Seafile
-- those four monitors are checked every minute; when multiple are down, only the highest-priority failing service sends Bark
-- Nginx Proxy Manager remains visible on the status page but does not alert because its authenticated/proxied root can respond before the home origin is reached
+- root-cause suppression uses Nginx Proxy Manager's native public `GET /api` health endpoint
+- only the Nginx root-cause monitor is forced into every cron cycle; normal services remain batched
+- when Nginx is down, Headscale, Frigate, Immich, and Seafile incidents are recorded but their Bark alerts are suppressed
 
 A dead-man switch is intentionally not used. UptimeFlare and Bark both run outside the home network on Cloudflare; the goal is to detect failures of the home infrastructure without adding another monitoring dependency.
 
@@ -73,27 +73,30 @@ The public checks are intentionally conservative: use a documented health endpoi
 For a full end-to-end notification test, temporarily add a monitor that calls a known-good endpoint but expects an impossible status code, leave it out of `skipNotificationIds`, wait past the grace period, confirm the Bark notification, and then remove the monitor.
 
 
-## Correlated outage alert suppression
+## Root-cause alert suppression
 
-The previous root-cause design used the Nginx Proxy Manager public root as the parent signal. That is not reliable for outage correlation because a protected/proxied hostname can return an authentication or proxy response even when the home origin is unavailable.
+Nginx Proxy Manager is the root-cause signal for the home edge, but it must be checked through its **native API health endpoint**, not the UI root.
 
-Core home alerts therefore use a priority quorum instead:
+The monitor uses:
 
 ```text
-1. Headscale
-2. Frigate
-3. Immich
-4. Seafile
+GET https://nginx.novoagatto.com/api
+expected HTTP: 200
+required response body: "status":"OK"
 ```
 
-All four are added to every cron invocation, independent of normal batching. If several are down in the same cycle, only the highest-priority failing service is eligible to notify.
+Nginx Proxy Manager documents `GET /api` as its public health check and returns an object containing `status: "OK"`, setup state, and version. This is materially different from checking `/`, where a Cloudflare/authentication/redirect response can look "up" even when the home origin is unavailable.
 
-Examples:
+Only `nginx` is automatically added to every cron invocation. The normal service set remains batched.
 
-- Headscale + Frigate + Immich + Seafile down -> only Headscale alerts.
-- Immich + Seafile down, Headscale and Frigate healthy -> only Immich alerts.
-- Seafile down alone -> Seafile alerts.
+Current dependency tree:
 
-Incidents for suppressed services are still recorded on the status page. If the higher-priority service recovers while a lower-priority service remains down, the remaining service becomes eligible for its own alert on the next check.
+```text
+Home Edge / Nginx
+├── Headscale
+├── Frigate
+├── Immich
+└── Seafile
+```
 
-Nginx Proxy Manager is informational only for Bark alerting because its public root accepts redirect/authentication responses and is therefore not a trustworthy signal for whether the home origin itself is reachable.
+If the edge is down, dependent incidents are still recorded but their Bark DOWN/recovery/error-change notifications are suppressed. If the edge is healthy and a child fails independently, that child alerts normally.

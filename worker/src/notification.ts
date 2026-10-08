@@ -43,20 +43,3 @@ export function getBlockingDependency(
 }
 
 
-export function getHigherPriorityDownMonitor(
-  monitorId: string,
-  priorityIds: string[] | undefined,
-  currentStatus: Record<string, { up: boolean }>
-): string | undefined {
-  if (!priorityIds?.includes(monitorId)) return undefined
-
-  const monitorPriority = priorityIds.indexOf(monitorId)
-  for (let index = 0; index < monitorPriority; index++) {
-    const higherPriorityId = priorityIds[index]
-    if (currentStatus[higherPriorityId]?.up === false) {
-      return higherPriorityId
-    }
-  }
-
-  return undefined
-}

@@ -44,7 +44,6 @@ const pageConfig: PageConfig = {
   links: [],
   group: {
     '🌐 Edge & Access': [
-      'nginx',
       'bark',
       'headscale',
       'headplane',
@@ -176,12 +175,17 @@ const workerConfig: WorkerConfig = {
       timeout: 10000,
       tooltip: 'LiteLLM gateway for local and remote models',
     }),
-    web(
-      'nginx',
-      'Nginx Proxy Manager',
-      'https://nginx.novoagatto.com',
-      'Primary reverse proxy / ingress; upstream healthcheck is container-internal'
-    ),
+    fromEasternNorthAmerica({
+      id: 'nginx',
+      name: 'Home Edge / Nginx',
+      method: 'GET',
+      target: 'https://nginx.novoagatto.com/api',
+      statusPageLink: 'https://nginx.novoagatto.com',
+      expectedCodes: [200],
+      responseKeyword: '"status":"OK"',
+      timeout: 10000,
+      tooltip: 'Home edge root-cause monitor using Nginx Proxy Manager native public API health endpoint',
+    }),
     fromEasternNorthAmerica({
       id: 'bark',
       name: 'Bark',
@@ -304,11 +308,15 @@ const workerConfig: WorkerConfig = {
       'seadoc',
     ],
     skipErrorChangeNotification: true,
-    // Correlate core home outages by priority. These four monitors are checked
-    // every minute even though the rest of the monitor set is batched. If more
-    // than one is down, only the first failing monitor in this list notifies.
-    // This avoids alert storms during power or internet outages.
-    priorityIds: ['headscale', 'frigate', 'immich', 'seafile'],
+    // Root-cause suppression: Nginx Proxy Manager's native /api health endpoint
+    // is checked every minute. If the home edge is down, child service failures
+    // are expected symptoms and do not create a Bark alert storm.
+    suppressWhenDown: {
+      headscale: ['nginx'],
+      frigate: ['nginx'],
+      immich: ['nginx'],
+      seafile: ['nginx'],
+    },
   },
 }
 

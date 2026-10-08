@@ -67,14 +67,7 @@ export type Notification = {
    * monitors is currently down. Parent monitors are checked on every cron run
    * even when monitor batching is enabled.
    */
-  suppressWhenDown?: Record<string, string[]>
-  /**
-   * Notification priority order. When multiple priority monitors are down at
-   * the same time, only the highest-priority DOWN is notified. All priority
-   * monitors are checked on every cron run even when batching is enabled.
-   */
-  priorityIds?: string[]
-}
+  suppressWhenDown?: Record<string, string[]>}
 
 type SingleWebhook = {
   url: string

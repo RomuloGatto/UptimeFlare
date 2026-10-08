@@ -5,7 +5,6 @@ import { includeRequiredMonitors, selectMonitorBatch } from '../worker/src/batch
 import {
   allWebhookDeliveriesSucceeded,
   getBlockingDependency,
-  getHigherPriorityDownMonitor,
   shouldSendDownNotification,
 } from '../worker/src/notification.ts'
 import { shouldPersistState } from '../worker/src/persistence.ts'
@@ -355,31 +354,3 @@ test('dependency suppression blocks child alerts only while the parent is down',
 })
 
 
-test('priority suppression keeps only the highest-priority failing monitor eligible', () => {
-  const priority = ['headscale', 'frigate', 'immich', 'seafile']
-  const allDown = {
-    headscale: { up: false },
-    frigate: { up: false },
-    immich: { up: false },
-    seafile: { up: false },
-  }
-
-  assert.equal(getHigherPriorityDownMonitor('headscale', priority, allDown), undefined)
-  assert.equal(getHigherPriorityDownMonitor('frigate', priority, allDown), 'headscale')
-  assert.equal(getHigherPriorityDownMonitor('immich', priority, allDown), 'headscale')
-  assert.equal(getHigherPriorityDownMonitor('seafile', priority, allDown), 'headscale')
-})
-
-test('priority suppression allows a lower-priority monitor when higher priorities are healthy', () => {
-  const priority = ['headscale', 'frigate', 'immich', 'seafile']
-  const status = {
-    headscale: { up: true },
-    frigate: { up: true },
-    immich: { up: false },
-    seafile: { up: false },
-  }
-
-  assert.equal(getHigherPriorityDownMonitor('immich', priority, status), undefined)
-  assert.equal(getHigherPriorityDownMonitor('seafile', priority, status), 'immich')
-  assert.equal(getHigherPriorityDownMonitor('nginx', priority, status), undefined)
-})

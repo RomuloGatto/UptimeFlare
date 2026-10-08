@@ -5,11 +5,7 @@ import { doMonitor, getStatus } from './monitor'
 import { formatAndNotify, getWorkerLocation } from './util'
 import { CompactedMonitorStateWrapper, getFromStore, setToStoreIfUnchanged } from './store'
 import { includeRequiredMonitors, selectMonitorBatch } from './batch'
-import {
-  getBlockingDependency,
-  getHigherPriorityDownMonitor,
-  shouldSendDownNotification,
-} from './notification'
+import { getBlockingDependency, shouldSendDownNotification } from './notification'
 import { shouldPersistState } from './persistence'
 import pLimit from 'p-limit'
 
@@ -71,12 +67,8 @@ const Worker = {
       event.scheduledTime
     )
     const notificationDependencies = workerConfig.notification?.suppressWhenDown
-    const notificationPriorityIds = workerConfig.notification?.priorityIds
     const requiredNotificationMonitorIds = Array.from(
-      new Set([
-        ...Object.values(notificationDependencies ?? {}).flat(),
-        ...(notificationPriorityIds ?? []),
-      ])
+      new Set(Object.values(notificationDependencies ?? {}).flat())
     )
     const monitorBatch = includeRequiredMonitors(
       baseMonitorBatch,
@@ -110,8 +102,7 @@ const Worker = {
       Object.entries(checkResult).map(([id, result]) => [id, { up: result.status.up }])
     )
     const blockingDependencyFor = (monitorId: string) =>
-      getBlockingDependency(monitorId, notificationDependencies, freshMonitorStatus) ??
-      getHigherPriorityDownMonitor(monitorId, notificationPriorityIds, freshMonitorStatus)
+      getBlockingDependency(monitorId, notificationDependencies, freshMonitorStatus)
 
     // Update each monitor's state based on check results
     for (const monitor of monitorBatch.monitors) {
