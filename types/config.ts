@@ -67,7 +67,8 @@ export type Notification = {
    * monitors is currently down. Parent monitors are checked on every cron run
    * even when monitor batching is enabled.
    */
-  suppressWhenDown?: Record<string, string[]>}
+  suppressWhenDown?: Record<string, string[]>
+}
 
 type SingleWebhook = {
   url: string

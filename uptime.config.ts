@@ -44,6 +44,7 @@ const pageConfig: PageConfig = {
   links: [],
   group: {
     '🌐 Edge & Access': [
+      'nginx',
       'bark',
       'headscale',
       'headplane',
