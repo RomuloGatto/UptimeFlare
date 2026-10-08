@@ -62,6 +62,12 @@ export type Notification = {
   gracePeriod?: number
   skipNotificationIds?: string[]
   skipErrorChangeNotification?: boolean
+  /**
+   * Suppress a monitor's notifications while one of its parent/root-cause
+   * monitors is currently down. Parent monitors are checked on every cron run
+   * even when monitor batching is enabled.
+   */
+  suppressWhenDown?: Record<string, string[]>
 }
 
 type SingleWebhook = {

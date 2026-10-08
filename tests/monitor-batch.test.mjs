@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { selectMonitorBatch } from '../worker/src/batch.ts'
+import { includeRequiredMonitors, selectMonitorBatch } from '../worker/src/batch.ts'
 import {
   allWebhookDeliveriesSucceeded,
+  getBlockingDependency,
   shouldSendDownNotification,
 } from '../worker/src/notification.ts'
 import { shouldPersistState } from '../worker/src/persistence.ts'
@@ -305,4 +306,49 @@ test('webhook arrays are acknowledged only when every destination succeeds', () 
   assert.equal(allWebhookDeliveriesSucceeded([]), false)
   assert.equal(allWebhookDeliveriesSucceeded([true, false]), false)
   assert.equal(allWebhookDeliveriesSucceeded([true, true]), true)
+})
+
+
+test('required root-cause monitors are included first in every batch without duplicates', () => {
+  const selection = selectMonitorBatch(monitors, 5, 60_000)
+  const withRoot = includeRequiredMonitors(selection, monitors, ['monitor-1'])
+
+  assert.deepEqual(withRoot.monitors.map(({ id }) => id), [
+    'monitor-1',
+    'monitor-6',
+    'monitor-7',
+    'monitor-8',
+    'monitor-9',
+    'monitor-10',
+  ])
+
+  const rootAlreadySelected = includeRequiredMonitors(
+    selectMonitorBatch(monitors, 5, 0),
+    monitors,
+    ['monitor-1']
+  )
+  assert.equal(
+    rootAlreadySelected.monitors.filter(({ id }) => id === 'monitor-1').length,
+    1
+  )
+})
+
+test('dependency suppression blocks child alerts only while the parent is down', () => {
+  const dependencies = {
+    frigate: ['nginx'],
+    immich: ['nginx'],
+  }
+
+  assert.equal(
+    getBlockingDependency('frigate', dependencies, { nginx: { up: false } }),
+    'nginx'
+  )
+  assert.equal(
+    getBlockingDependency('frigate', dependencies, { nginx: { up: true } }),
+    undefined
+  )
+  assert.equal(
+    getBlockingDependency('nginx', dependencies, { nginx: { up: false } }),
+    undefined
+  )
 })

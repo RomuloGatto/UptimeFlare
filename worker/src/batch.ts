@@ -44,3 +44,29 @@ export function selectMonitorBatch<T>(
     batched: true,
   }
 }
+
+
+/**
+ * Ensure root-cause/dependency monitors are checked on every cron invocation.
+ * Required monitors are placed first so their fresh status is available before
+ * dependent notification decisions are processed.
+ */
+export function includeRequiredMonitors<T extends { id: string }>(
+  selection: MonitorBatch<T>,
+  allMonitors: T[],
+  requiredIds: string[]
+): MonitorBatch<T> {
+  if (requiredIds.length === 0) return selection
+
+  const requiredIdSet = new Set(requiredIds)
+  const required = allMonitors.filter((monitor) => requiredIdSet.has(monitor.id))
+  const requiredPresent = new Set(required.map((monitor) => monitor.id))
+  const selectedWithoutRequired = selection.monitors.filter(
+    (monitor) => !requiredPresent.has(monitor.id)
+  )
+
+  return {
+    ...selection,
+    monitors: [...required, ...selectedWithoutRequired],
+  }
+}

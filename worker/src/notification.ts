@@ -31,3 +31,13 @@ export function shouldSendDownNotification({
 
   return true
 }
+
+
+export function getBlockingDependency(
+  monitorId: string,
+  suppressWhenDown: Record<string, string[]> | undefined,
+  currentStatus: Record<string, { up: boolean }>
+): string | undefined {
+  const parents = suppressWhenDown?.[monitorId] ?? []
+  return parents.find((parentId) => currentStatus[parentId]?.up === false)
+}

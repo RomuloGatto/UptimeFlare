@@ -4,8 +4,8 @@ import { workerConfig } from '../../uptime.config'
 import { doMonitor, getStatus } from './monitor'
 import { formatAndNotify, getWorkerLocation } from './util'
 import { CompactedMonitorStateWrapper, getFromStore, setToStoreIfUnchanged } from './store'
-import { selectMonitorBatch } from './batch'
-import { shouldSendDownNotification } from './notification'
+import { includeRequiredMonitors, selectMonitorBatch } from './batch'
+import { getBlockingDependency, shouldSendDownNotification } from './notification'
 import { shouldPersistState } from './persistence'
 import pLimit from 'p-limit'
 
@@ -61,10 +61,19 @@ const Worker = {
     const initialStoredState = await getFromStore(env, 'state')
     const state = new CompactedMonitorStateWrapper(initialStoredState)
 
-    const monitorBatch = selectMonitorBatch(
+    const baseMonitorBatch = selectMonitorBatch(
       workerConfig.monitors,
       workerConfig.monitorBatchSize,
       event.scheduledTime
+    )
+    const notificationDependencies = workerConfig.notification?.suppressWhenDown
+    const requiredNotificationMonitorIds = Array.from(
+      new Set(Object.values(notificationDependencies ?? {}).flat())
+    )
+    const monitorBatch = includeRequiredMonitors(
+      baseMonitorBatch,
+      workerConfig.monitors,
+      requiredNotificationMonitorIds
     )
     console.log(
       `Checking monitor batch ${monitorBatch.batchIndex + 1}/${monitorBatch.batchCount}: ${monitorBatch.monitors
@@ -89,6 +98,12 @@ const Worker = {
       checkResult[result.id] = result
     }
 
+    const freshMonitorStatus = Object.fromEntries(
+      Object.entries(checkResult).map(([id, result]) => [id, { up: result.status.up }])
+    )
+    const blockingDependencyFor = (monitorId: string) =>
+      getBlockingDependency(monitorId, notificationDependencies, freshMonitorStatus)
+
     // Update each monitor's state based on check results
     for (const monitor of monitorBatch.monitors) {
       console.log(`Processing monitor result: ${monitor.name} (${monitor.id})`)
@@ -102,13 +117,21 @@ const Worker = {
       const pendingRecovery = state.getPendingRecovery(monitor.id)
       if (pendingRecovery) {
         try {
-          const recoverySent = await formatAndNotify(
-            monitor,
-            true,
-            pendingRecovery.incidentStart,
-            pendingRecovery.recoveredAt,
-            'OK'
-          )
+          const blockingDependency = blockingDependencyFor(monitor.id)
+          if (blockingDependency) {
+            console.log(
+              `Suppressing recovery notification for ${monitor.name}: dependency ${blockingDependency} is down`
+            )
+          }
+          const recoverySent = blockingDependency
+            ? false
+            : await formatAndNotify(
+                monitor,
+                true,
+                pendingRecovery.incidentStart,
+                pendingRecovery.recoveredAt,
+                'OK'
+              )
           if (recoverySent) {
             state.clearPendingRecovery(monitor.id)
             state.clearDownNotificationSent(monitor.id, pendingRecovery.incidentStart)
@@ -123,13 +146,21 @@ const Worker = {
       const pendingErrorChange = state.getPendingErrorChange(monitor.id)
       if (pendingErrorChange) {
         try {
-          const errorChangeSent = await formatAndNotify(
-            monitor,
-            false,
-            pendingErrorChange.incidentStart,
-            currentTimeSecond,
-            pendingErrorChange.reason
-          )
+          const blockingDependency = blockingDependencyFor(monitor.id)
+          if (blockingDependency) {
+            console.log(
+              `Suppressing error-change notification for ${monitor.name}: dependency ${blockingDependency} is down`
+            )
+          }
+          const errorChangeSent = blockingDependency
+            ? false
+            : await formatAndNotify(
+                monitor,
+                false,
+                pendingErrorChange.incidentStart,
+                currentTimeSecond,
+                pendingErrorChange.reason
+              )
           if (errorChangeSent) {
             state.clearPendingErrorChange(monitor.id)
             notificationStateChanged = true
@@ -166,13 +197,21 @@ const Worker = {
             if (state.wasDownNotificationSent(monitor.id, lastIncident.start[0])) {
               state.setPendingRecovery(monitor.id, lastIncident.start[0], currentTimeSecond)
               notificationStateChanged = true
-              const recoverySent = await formatAndNotify(
-                monitor,
-                true,
-                lastIncident.start[0],
-                currentTimeSecond,
-                'OK'
-              )
+              const blockingDependency = blockingDependencyFor(monitor.id)
+              if (blockingDependency) {
+                console.log(
+                  `Suppressing recovery notification for ${monitor.name}: dependency ${blockingDependency} is down`
+                )
+              }
+              const recoverySent = blockingDependency
+                ? false
+                : await formatAndNotify(
+                    monitor,
+                    true,
+                    lastIncident.start[0],
+                    currentTimeSecond,
+                    'OK'
+                  )
               if (recoverySent) {
                 state.clearPendingRecovery(monitor.id)
                 state.clearDownNotificationSent(monitor.id, lastIncident.start[0])
@@ -244,13 +283,21 @@ const Worker = {
               notificationStateChanged = true
             }
 
-            const notificationSent = await formatAndNotify(
-              monitor,
-              false,
-              currentIncident.start[0],
-              currentTimeSecond,
-              status.err
-            )
+            const blockingDependency = blockingDependencyFor(monitor.id)
+            if (blockingDependency) {
+              console.log(
+                `Suppressing DOWN notification for ${monitor.name}: dependency ${blockingDependency} is down`
+              )
+            }
+            const notificationSent = blockingDependency
+              ? false
+              : await formatAndNotify(
+                  monitor,
+                  false,
+                  currentIncident.start[0],
+                  currentTimeSecond,
+                  status.err
+                )
             if (notificationSent) {
               if (!state.wasDownNotificationSent(monitor.id, currentIncident.start[0])) {
                 notificationStateChanged = true

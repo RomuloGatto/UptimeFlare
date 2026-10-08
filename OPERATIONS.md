@@ -47,6 +47,8 @@ Notifications are delivered through the Cloudflare-hosted Bark service at `bark.
 - grace period: 2 minutes
 - Bark itself is excluded from notifications because it cannot report its own outage
 - non-critical/admin services are listed in `skipNotificationIds`
+- root-cause suppression is enabled: `Home Edge / Nginx` is checked every minute and suppresses dependent alerts while it is down
+- current dependents: Headscale, Frigate, Immich, and Seafile
 
 A dead-man switch is intentionally not used. UptimeFlare and Bark both run outside the home network on Cloudflare; the goal is to detect failures of the home infrastructure without adding another monitoring dependency.
 
@@ -68,3 +70,24 @@ The public checks are intentionally conservative: use a documented health endpoi
 ## Alert test
 
 For a full end-to-end notification test, temporarily add a monitor that calls a known-good endpoint but expects an impossible status code, leave it out of `skipNotificationIds`, wait past the grace period, confirm the Bark notification, and then remove the monitor.
+
+
+## Root-cause alert suppression
+
+The `nginx` monitor is the priority/root-cause signal for the home edge and is displayed as **Home Edge / Nginx**.
+
+When it is down, UptimeFlare still records incidents for dependent services but does not send separate Bark notifications for them. This prevents an internet or ingress outage from producing several notifications for the same event.
+
+Current dependency tree:
+
+```text
+Home Edge / Nginx
+├── Headscale
+├── Frigate
+├── Immich
+└── Seafile
+```
+
+The root monitor is automatically added to every cron batch, so suppression uses a fresh edge result even though normal service checks are batched.
+
+When the edge recovers, a dependent service that is still down becomes eligible for its own notification on its next check. A dependent service whose DOWN alert was suppressed will not send a misleading recovery notification.

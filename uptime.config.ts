@@ -178,9 +178,9 @@ const workerConfig: WorkerConfig = {
     }),
     web(
       'nginx',
-      'Nginx Proxy Manager',
+      'Home Edge / Nginx',
       'https://nginx.novoagatto.com',
-      'Primary reverse proxy / ingress; upstream healthcheck is container-internal'
+      'Home uplink / primary ingress root-cause monitor; upstream healthcheck is container-internal'
     ),
     fromEasternNorthAmerica({
       id: 'bark',
@@ -304,6 +304,14 @@ const workerConfig: WorkerConfig = {
       'seadoc',
     ],
     skipErrorChangeNotification: true,
+    // Root-cause suppression: if the home edge is down, child service failures
+    // are expected symptoms and should not create an alert storm.
+    suppressWhenDown: {
+      headscale: ['nginx'],
+      frigate: ['nginx'],
+      immich: ['nginx'],
+      seafile: ['nginx'],
+    },
   },
 }
 
