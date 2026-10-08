@@ -180,7 +180,7 @@ const workerConfig: WorkerConfig = {
       id: 'nginx',
       name: 'Home Edge / Nginx',
       method: 'GET',
-      target: 'https://nginx.novoagatto.com/api',
+      target: 'https://nginx.novoagatto.com/api/',
       statusPageLink: 'https://nginx.novoagatto.com',
       expectedCodes: [200],
       responseKeyword: '"status":"OK"',

@@ -80,12 +80,12 @@ Nginx Proxy Manager is the root-cause signal for the home edge, but it must be c
 The monitor uses:
 
 ```text
-GET https://nginx.novoagatto.com/api
+GET https://nginx.novoagatto.com/api/
 expected HTTP: 200
 required response body: "status":"OK"
 ```
 
-Nginx Proxy Manager documents `GET /api` as its public health check and returns an object containing `status: "OK"`, setup state, and version. This is materially different from checking `/`, where a Cloudflare/authentication/redirect response can look "up" even when the home origin is unavailable.
+Nginx Proxy Manager's own container health check calls `/api/` and expects `.status == "OK"`; the API docs expose the health resource at the API root and returns an object containing `status: "OK"`, setup state, and version. This is materially different from checking `/`, where a Cloudflare/authentication/redirect response can look "up" even when the home origin is unavailable.
 
 Only `nginx` is automatically added to every cron invocation. The normal service set remains batched.
 
