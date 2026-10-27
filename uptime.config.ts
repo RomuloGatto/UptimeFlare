@@ -44,7 +44,6 @@ const pageConfig: PageConfig = {
   links: [],
   group: {
     '🌐 Edge & Access': [
-      'nginx',
       'bark',
       'headscale',
       'headplane',
@@ -61,7 +60,6 @@ const pageConfig: PageConfig = {
       'paperless',
     ],
     '🤖 AI & Automation': [
-      'llm',
       'cliproxy',
       'karakeep',
     ],
@@ -126,7 +124,7 @@ const workerConfig: WorkerConfig = {
       id: 'headplane',
       name: 'Headplane',
       method: 'GET',
-      target: 'https://headplane.novoagatto.com/healthz',
+      target: 'https://headplane.novoagatto.com/admin/healthz',
       statusPageLink: 'https://headplane.novoagatto.com',
       expectedCodes: [200],
       responseKeyword: '"status":"OK"',
@@ -165,27 +163,6 @@ const workerConfig: WorkerConfig = {
       expectedCodes: [200],
       timeout: 10000,
       tooltip: 'Bookmark and knowledge archive',
-    }),
-    fromEasternNorthAmerica({
-      id: 'llm',
-      name: 'LLM',
-      method: 'GET',
-      target: 'https://llm.novoagatto.com/health/readiness',
-      statusPageLink: 'https://llm.novoagatto.com',
-      expectedCodes: [200],
-      timeout: 10000,
-      tooltip: 'LiteLLM gateway for local and remote models',
-    }),
-    fromEasternNorthAmerica({
-      id: 'nginx',
-      name: 'Home Edge / Nginx',
-      method: 'GET',
-      target: 'https://nginx.novoagatto.com/api/',
-      statusPageLink: 'https://nginx.novoagatto.com',
-      expectedCodes: [200],
-      responseKeyword: '"status":"OK"',
-      timeout: 10000,
-      tooltip: 'Home edge root-cause monitor using Nginx Proxy Manager native public API health endpoint',
     }),
     fromEasternNorthAmerica({
       id: 'bark',
@@ -300,7 +277,6 @@ const workerConfig: WorkerConfig = {
       'headplane',
       'it-tools',
       'karakeep',
-      'llm',
       'oauth2',
       'onlyoffice',
       'paperless',
@@ -309,15 +285,6 @@ const workerConfig: WorkerConfig = {
       'seadoc',
     ],
     skipErrorChangeNotification: true,
-    // Root-cause suppression: Nginx Proxy Manager's native /api health endpoint
-    // is checked every minute. If the home edge is down, child service failures
-    // are expected symptoms and do not create a Bark alert storm.
-    suppressWhenDown: {
-      headscale: ['nginx'],
-      frigate: ['nginx'],
-      immich: ['nginx'],
-      seafile: ['nginx'],
-    },
   },
 }
 
