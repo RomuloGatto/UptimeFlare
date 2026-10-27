@@ -76,7 +76,7 @@ const pageConfig: PageConfig = {
 
 const workerConfig: WorkerConfig = {
   kvWriteCooldownMinutes: 3,
-  monitorBatchSize: 5,
+  monitorBatchSize: 3,
   monitors: [
     fromEasternNorthAmerica({
       id: 'auth',
