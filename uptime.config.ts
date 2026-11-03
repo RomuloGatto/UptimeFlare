@@ -37,6 +37,22 @@ const web = (
     ...(hideLatencyChart ? { hideLatencyChart: true } : {}),
   })
 
+// Strict 200 and content checks ensure a generic Cloudflare error/fallback page is not marked healthy.
+const trotinho = (
+  id: string, name: string, path: string, keyword: string, tooltip: string
+): MonitorTarget =>
+  fromEasternNorthAmerica({
+    id,
+    name,
+    method: 'GET',
+    target: 'https://trotinho.com' + path,
+    statusPageLink: path === '/api/health' ? 'https://trotinho.com/app/' : 'https://trotinho.com' + path,
+    expectedCodes: [200],
+    responseKeyword: keyword,
+    timeout: 10000,
+    tooltip,
+  })
+
 const pageConfig: PageConfig = {
   title: 'Miau Labs · Infrastructure Status',
   logo: '/miau-labs.svg',
@@ -63,6 +79,13 @@ const pageConfig: PageConfig = {
       'cliproxy',
       'karakeep',
     ],
+    '🏃 Trotinho': [
+      'trotinho-runner',
+      'trotinho-personal-pt',
+      'trotinho-personal-en',
+      'trotinho-app',
+      'trotinho-api',
+    ],
     '🧰 Utilities & Docs': [
       'onlyoffice',
       'pdf',
@@ -76,6 +99,11 @@ const workerConfig: WorkerConfig = {
   kvWriteCooldownMinutes: 3,
   monitorBatchSize: 3,
   monitors: [
+    trotinho('trotinho-runner', 'Trotinho · Corredor', '/', 'trotinho', 'Landing do cronometro gratuito'),
+    trotinho('trotinho-personal-pt', 'Trotinho · Personal (PT)', '/personal/', 'Você monta o treino.', 'Landing Personal em portugues'),
+    trotinho('trotinho-personal-en', 'Trotinho · Personal (EN)', '/en/personal/', 'You plan the workout.', 'Landing Personal em ingles'),
+    trotinho('trotinho-app', 'Trotinho · Aplicativo', '/app/', 'Trotinho', 'Shell HTML da PWA; nao testa cronometro com JavaScript'),
+    trotinho('trotinho-api', 'Trotinho · Worker API', '/api/health', '"status":"ok"', 'Liveness do Worker; nao testa PocketBase/OAuth'),
     fromEasternNorthAmerica({
       id: 'auth',
       name: 'Auth',
@@ -283,6 +311,10 @@ const workerConfig: WorkerConfig = {
       'pdf',
       'pocketid',
       'seadoc',
+      // Avoid flooding Bark when an edge outage affects several public pages.
+      'trotinho-runner',
+      'trotinho-personal-pt',
+      'trotinho-personal-en',
     ],
     skipErrorChangeNotification: true,
   },
