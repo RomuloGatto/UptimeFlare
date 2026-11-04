@@ -31,3 +31,25 @@ test('low-value page checks do not trigger duplicate Bark notifications', () => 
   }
   assert.doesNotMatch(skip, /'trotinho-app'|'trotinho-api'/)
 })
+
+
+test('Oracle, Umami and GlitchTip checks have strict public endpoints without credentials', () => {
+  for (const [id, url] of [
+    ['trotinho-backend', '/api/backend-health'],
+    ['trotinho-umami', 'https://umami.trotinho.com/script.js'],
+    ['trotinho-glitchtip', 'https://glitchtip.trotinho.com/_health/'],
+  ]) {
+    assert.ok(config.includes("'" + id + "'"), id)
+    assert.ok(config.includes(url), url)
+  }
+  assert.match(config, /expectedCodes: \[200\]/)
+  assert.doesNotMatch(config, /CF-Access-Client-Secret|Authorization: Bearer/)
+})
+
+test('Oracle and observability checks are visible but never send Bark notifications', () => {
+  const skip = config.split('skipNotificationIds: [')[1]?.split(']')[0]
+  assert.ok(skip)
+  for (const id of ['trotinho-backend','trotinho-umami','trotinho-glitchtip']) {
+    assert.ok(skip.includes("'" + id + "'"), id)
+  }
+})
